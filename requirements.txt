@@ -1,4 +1,5 @@
 antspyx==0.6.3
+HD_BET==2.0.1
 torch==2.12.0+cu130
 torchvision==0.27.0+cu130
-HD_BET==2.0.1
+einops==0.8.2

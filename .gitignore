@@ -1,3 +1,7 @@
 .venv
 .vscode
 dataset
+jsons
+outputs
+assets
+examine.py
