@@ -608,4 +608,120 @@ class RandShiftIntensityd:
             data[key] = self._shift(data[key])
 
         return data
+
+
+class RandGaussianNoised:
+    def __init__(
+        self,
+        keys,
+        prob=0.1,
+        mean=0.0,
+        std=0.01,
+        channel_wise=False,
+    ):
+        self.keys = keys if isinstance(keys, (list, tuple)) else [keys]
+        self.prob = prob
+        self.mean = float(mean)
+        self.std = float(std)
+        self.channel_wise = channel_wise
+
+    def _add_noise(self, img):
+        # (C,H,W,D)
+        if self.channel_wise:
+            out = img.copy()
+
+            for c in range(img.shape[0]):
+                noise = np.random.normal(
+                    loc=self.mean,
+                    scale=self.std,
+                    size=img[c].shape,
+                )
+                out[c] += noise
+
+            return out
+
+        noise = np.random.normal(
+            loc=self.mean,
+            scale=self.std,
+            size=img.shape,
+        )
+
+        return img + noise
+
+    def __call__(self, data: Dict):
+        if np.random.random() >= self.prob:
+            return data
+
+        for key in self.keys:
+            data[key] = self._add_noise(data[key])
+
+        return data
+
+
+class RandRotated:
+    """
+    Random 90-degree rotation on 3D volumes.
+    Equivalent to MONAI RandRotate90d with prob and spatial_axis.
+    """
+
+    def __init__(
+        self,
+        keys,
+        prob=0.1,
+        spatial_axes=((0, 1), (1, 2), (0, 2)),
+        max_k=3,
+    ):
+        """
+        spatial_axes: pairs of axes to rotate in 3D.
+        max_k: number of 90-degree steps (1–3).
+        """
+        self.keys = keys if isinstance(keys, (list, tuple)) else [keys]
+        self.prob = prob
+        self.spatial_axes = spatial_axes
+        self.max_k = max_k
+
+    def _rotate90(self, img, k, axes):
+        """
+        90-degree rotation using numpy rot90.
+        """
+
+        # channel-first handling
+        if img.ndim == 4:
+            # (C, H, W, D)
+            rotated = np.empty_like(img)
+
+            for c in range(img.shape[0]):
+                rotated[c] = np.rot90(
+                    img[c],
+                    k=k,
+                    axes=axes,
+                )
+
+            return rotated
+
+        elif img.ndim == 3:
+            return np.rot90(img, k=k, axes=axes)
+
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+
+    def __call__(self, data: Dict):
+        if np.random.random() >= self.prob:
+            return data
+
+        # pick random axis pair and rotation step
+        axes = self.spatial_axes[
+            np.random.randint(len(self.spatial_axes))
+        ]
+
+        k = np.random.randint(1, self.max_k + 1)
+
+        for key in self.keys:
+            data[key] = self._rotate90(
+                data[key],
+                k=k,
+                axes=axes,
+            )
+
+        return data
     
