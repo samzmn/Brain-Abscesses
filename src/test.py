@@ -76,10 +76,19 @@ def main():
             seg = prob.detach().cpu().numpy()
             seg = (seg > 0.5).astype(np.int8)
             seg_out = np.zeros((seg.shape[1], seg.shape[2], seg.shape[3]))
+            # 1 for NCR, 2 for edema(ED), 4 for ET, and 0 for everything else.
             seg_out[seg[1] == 1] = 2
             seg_out[seg[0] == 1] = 1
             seg_out[seg[2] == 1] = 4
             nib.save(nib.Nifti1Image(seg_out.astype(np.uint8), affine), os.path.join(output_directory, img_name))
+
+            # pred = torch.sigmoid(model_inferer_test(image[0]))
+            # pred = pred.detach().cpu().numpy()
+            # pred = (pred > 0.5).astype(np.int8)
+            # print(f"pred shape : {pred.shape}")
+            # pred = np.argmax(pred, axis=0)
+            # print(f"pred argmax: {pred.shape} , dtype: {pred.dtype}")
+            # nib.save(nib.Nifti1Image(pred.astype(np.uint8), affine), os.path.join(output_directory, "patient_237_argmax_f1.nii.gz"))
         print("Finished inference!")
 
 
