@@ -6,11 +6,9 @@ from torchvision.transforms.v2 import Compose
 from torch.utils.data import DataLoader, Dataset
 import nibabel as nib
 import numpy as np
-np.random.seed(47)
-np.random.RandomState(47)
 
-import transforms
-# from transforms import LoadImaged, NormalizeIntensityd, ToTensord, CropForegroundd, RandSpatialCropd, SpatialPadd, RandFlipd, RandScaleIntensityd
+import data.transforms as transforms
+
 
 class BrainDataset(Dataset):
     def __init__(self, samples, transform=None):
@@ -51,7 +49,7 @@ def data_read(datalist, basedir):
 
 
 def get_loader(
-        data_dir, datalist_json, test_mode: bool, fold, roi_x, roi_y, roi_z, batch_size, num_workers
+        data_dir, datalist_json, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers
     ) -> Union[DataLoader | List[DataLoader]]:
     train_files, validation_files = data_read(datalist=datalist_json, basedir=data_dir)
     train_transform = Compose(
@@ -76,6 +74,10 @@ def get_loader(
     val_transform = Compose(
         [
             transforms.LoadImaged(keys=["image", "label"]),
+            transforms.CropForegroundd(
+                keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
+            ),
+            transforms.SpatialPadd(keys=["image", "label"], spatial_size=[roi_x, roi_y, roi_z]),
             transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
             transforms.ToTensord(keys=["image", "label"]),
         ]
@@ -83,9 +85,13 @@ def get_loader(
 
     test_transform = Compose(
         [
-            transforms.LoadImaged(keys=["image", "label"]),
+            transforms.LoadImaged(keys=["image"]),
+            # transforms.CropForegroundd(
+            #     keys=["image"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
+            # ),
+            # transforms.SpatialPadd(keys=["image"], spatial_size=[roi_x, roi_y, roi_z]),
             transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            transforms.ToTensord(keys=["image", "label"]),
+            transforms.ToTensord(keys=["image"]),
         ]
     )
 
@@ -122,7 +128,7 @@ def get_loader(
 def test():
     # train_files, validation_files = data_read(datalist="jsons/train.json", basedir="dataset")
     # loader = get_loader(data_dir="dataset/registered", datalist_json="jsons/test.json", test_mode=True, 
-    #                     fold=1, roi_x=128, roi_y=128, roi_z=128, batch_size=1, num_workers=8)
+    #                     roi_x=128, roi_y=128, roi_z=128, batch_size=1, num_workers=8)
     # for i, batch in enumerate(loader):
     #     print(batch.keys())
     #     image = batch["image"]
@@ -131,7 +137,7 @@ def test():
     #     print(label.shape) # torch.Size([1, 4, 256, 256, 24])
 
     train_loader, valid_loader = get_loader(data_dir="dataset/registered", datalist_json="jsons/train.json", test_mode=False, 
-                        fold=1, roi_x=64, roi_y=64, roi_z=64, batch_size=1, num_workers=8)
+                                            roi_x=64, roi_y=64, roi_z=64, batch_size=1, num_workers=8)
     for i, batch in enumerate(train_loader):
         print(batch.keys()) # dict_keys(['image', 'label', 'affine', 'foreground_start_coord', 'foreground_end_coord'])
         print(batch["affine"].shape)

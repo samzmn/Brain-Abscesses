@@ -4,4 +4,5 @@ dataset
 jsons
 outputs
 assets
+pretrained_models
 examine.py

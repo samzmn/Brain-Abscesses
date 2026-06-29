@@ -724,4 +724,93 @@ class RandRotated:
             )
 
         return data
-    
+
+
+class SpatialPad:
+    def __init__(
+        self,
+        spatial_size,
+        mode="constant",
+        constant_values=0,
+    ):
+        self.spatial_size = tuple(spatial_size)
+        self.mode = mode
+        self.constant_values = constant_values
+
+    def _compute_pad_width(self, spatial_shape):
+        """Compute symmetric padding."""
+        pad_width = []
+
+        for current, target in zip(spatial_shape, self.spatial_size):
+            if current >= target:
+                pad_width.append((0, 0))
+                continue
+
+            total_pad = target - current
+            before = total_pad // 2
+            after = total_pad - before
+
+            pad_width.append((before, after))
+
+        return pad_width
+
+    def pad(self, img):
+        """
+        Pad an image and return both the padded image and the pad_width.
+
+        Returns
+        -------
+        padded_img : ndarray
+        pad_width : list of tuples
+            Can be passed to `unpad()` to restore the original image.
+        """
+        if img.ndim == 4:
+            # (C, H, W, D)
+            spatial_shape = img.shape[1:]
+            spatial_pad = self._compute_pad_width(spatial_shape)
+            pad_width = [(0, 0)] + spatial_pad
+
+        elif img.ndim == 3:
+            # (H, W, D)
+            spatial_shape = img.shape
+            pad_width = self._compute_pad_width(spatial_shape)
+
+        else:
+            raise ValueError(f"Unsupported shape {img.shape}")
+
+        padded = np.pad(
+            img,
+            pad_width=pad_width,
+            mode=self.mode,
+            constant_values=self.constant_values,
+        )
+
+        return padded, pad_width
+
+    def unpad(self, img, pad_width):
+        """
+        Remove padding previously added by `pad()`.
+
+        Parameters
+        ----------
+        img : ndarray
+            Padded image.
+        pad_width : list of tuples
+            The pad_width returned by `pad()`.
+
+        Returns
+        -------
+        ndarray
+            Original unpadded image.
+        """
+        slices = []
+
+        for dim_size, (before, after) in zip(img.shape, pad_width):
+            start = before
+            stop = dim_size - after if after > 0 else dim_size
+            slices.append(slice(start, stop))
+
+        return img[tuple(slices)]
+
+    def __call__(self, data):
+        return self.pad(data)
