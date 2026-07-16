@@ -1,14 +1,13 @@
 import json
 import math
 import os
-from typing import Any, Union, List
+from typing import Any, Union, List, Tuple
 from torchvision.transforms.v2 import Compose
 from torch.utils.data import DataLoader, Dataset
 import nibabel as nib
 import numpy as np
 
 import data.transforms as transforms
-
 
 class BrainDataset(Dataset):
     def __init__(self, samples, transform=None):
@@ -40,17 +39,17 @@ def data_read(datalist, basedir):
                     d[k] = [os.path.join(basedir, iv) for iv in d[k]]
                 elif isinstance(d[k], str):
                     d[k] = os.path.join(basedir, d[k]) if len(d[k]) > 0 else d[k]
-        if key == "train":
-            tr.append(d)
-        else:
-            val.append(d)
+            if key == "train":
+                tr.append(d)
+            else:
+                val.append(d)
 
     return tr, val
 
 
 def get_loader(
         data_dir, datalist_json, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers
-    ) -> Union[DataLoader | List[DataLoader]]:
+    ) -> Union[DataLoader | Tuple[DataLoader]]:
     train_files, validation_files = data_read(datalist=datalist_json, basedir=data_dir)
     train_transform = Compose(
         [
@@ -137,7 +136,9 @@ def test():
     #     print(label.shape) # torch.Size([1, 4, 256, 256, 24])
 
     train_loader, valid_loader = get_loader(data_dir="dataset/registered", datalist_json="jsons/train.json", test_mode=False, 
-                                            roi_x=64, roi_y=64, roi_z=64, batch_size=1, num_workers=8)
+                                            roi_x=96, roi_y=96, roi_z=96, batch_size=1, num_workers=8)
+    print(len(train_loader), len(valid_loader))
+
     for i, batch in enumerate(train_loader):
         print(batch.keys()) # dict_keys(['image', 'label', 'affine', 'foreground_start_coord', 'foreground_end_coord'])
         print(batch["affine"].shape)
