@@ -13,6 +13,7 @@ def sliding_window_inference(
     sw_batch_size: int,                         # batch size
     predictor: Callable[..., torch.Tensor],     # model
     device: torch.device | str | None,          # 'cpu' or 'cuda'
+    return_device: torch.device |str = "cpu",   # device to return the output tensor - 'cpu' or 'cuda'
     overlap: float = 0.25,                      # overlap fraction
     mode: str = "constant",                     # or 'gaussian'
     include_edge_patches: bool = True
@@ -96,6 +97,6 @@ def sliding_window_inference(
 
     # Zero out voxels that were never predicted
     output_volume[:, count_map == 0] = 0
-    output_volume = output_volume.cpu()
+    output_volume = output_volume.to(return_device)
     output_volume = spatial_padding.unpad(output_volume, pad_width)
     return output_volume
