@@ -203,10 +203,10 @@ class SwinUNETR(nn.Module):
         self.out = UnetOutBlock(in_channels=feature_size, out_channels=out_channels)
 
     def load_from(self, weights):
-        layers1_0: BasicLayer = self.swinViT.layers1[0]  # type: ignore[assignment]
-        layers2_0: BasicLayer = self.swinViT.layers2[0]  # type: ignore[assignment]
-        layers3_0: BasicLayer = self.swinViT.layers3[0]  # type: ignore[assignment]
-        layers4_0: BasicLayer = self.swinViT.layers4[0]  # type: ignore[assignment]
+        layers1_0 = self.swinViT.layers1[0]
+        layers2_0 = self.swinViT.layers2[0]
+        layers3_0 = self.swinViT.layers3[0]
+        layers4_0 = self.swinViT.layers4[0]
         wstate = weights["state_dict"]
 
         with torch.no_grad():
