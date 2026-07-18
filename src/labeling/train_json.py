@@ -5,7 +5,7 @@ from pathlib import Path
 # Configuration
 # -----------------------------------------------------------------------------
 
-dataset_root = Path("./dataset/train")
+dataset_root = Path("./dataset/train_patches")
 output_json = Path("./jsons/train.json")
 
 # Order of modalities expected by the model
@@ -17,8 +17,6 @@ modalities = [
     # "ADC",
 ]
 
-label_name = "Segmentations.nii.gz"
-
 # -----------------------------------------------------------------------------
 
 train_list = []
@@ -26,7 +24,7 @@ train_list = []
 # Sort folders numerically
 subject_dirs = sorted(
     [d for d in dataset_root.iterdir() if d.is_dir()],
-    key=lambda x: int(x.name)
+    key=lambda x: int(x.name.strip().split('_')[0].replace('subject', ''))
 )
 
 for subject_dir in subject_dirs:
@@ -48,6 +46,7 @@ for subject_dir in subject_dirs:
     if missing:
         continue
 
+    label_name = f"{subject_dir.name}_label.nii.gz"
     label_path = subject_dir / label_name
 
     if not label_path.exists():
@@ -62,7 +61,6 @@ for subject_dir in subject_dirs:
 # -----------------------------------------------------------------------------
 
 json_dict = {
-    "valid": [train_list[-1]],
     "train": train_list
 }
 
