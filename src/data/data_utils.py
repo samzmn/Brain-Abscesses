@@ -1,7 +1,7 @@
 import json
 import math
 import os
-from typing import Any, Union, List, Tuple
+from typing import Any, Union, List, Tuple, Dict
 from torchvision.transforms.v2 import Compose
 from torch.utils.data import DataLoader, Dataset
 import nibabel as nib
@@ -26,12 +26,11 @@ class BrainDataset(Dataset):
         return item
     
 
-def data_read(datalist, basedir):
+def data_read(datalist, basedir) -> List[Dict[str, str]]:
     with open(datalist) as f:
         json_data = json.load(f)
 
-    tr = []
-    val = []
+    data = []
     for key, value in json_data.items():
         for d in value:
             for k, v in d.items():
@@ -39,105 +38,73 @@ def data_read(datalist, basedir):
                     d[k] = [os.path.join(basedir, iv) for iv in d[k]]
                 elif isinstance(d[k], str):
                     d[k] = os.path.join(basedir, d[k]) if len(d[k]) > 0 else d[k]
-            if key == "train":
-                tr.append(d)
-            else:
-                val.append(d)
+            data.append(d)
 
-    return tr, val
+    return data
 
 
 def get_loader(
         data_dir, datalist_json, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers
-    ) -> Union[DataLoader | Tuple[DataLoader]]:
-    train_files, validation_files = data_read(datalist=datalist_json, basedir=data_dir)
-    train_transform = Compose(
-        [
-            transforms.LoadImaged(keys=["image", "label"]),
-            transforms.CropForegroundd(
-                keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
-            ),
-            transforms.SpatialPadd(keys=["image", "label"], spatial_size=[roi_x, roi_y, roi_z]),
-            transforms.RandSpatialCropd(
-                keys=["image", "label"], roi_size=[roi_x, roi_y, roi_z], random_size=False
-            ),
-            transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
-            transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
-            transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
-            transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            transforms.RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
-            transforms.RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
-            transforms.ToTensord(keys=["image", "label"]),
-        ]
-    )
-    val_transform = Compose(
-        [
-            transforms.LoadImaged(keys=["image", "label"]),
-            transforms.CropForegroundd(
-                keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
-            ),
-            transforms.SpatialPadd(keys=["image", "label"], spatial_size=[roi_x, roi_y, roi_z]),
-            transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            transforms.ToTensord(keys=["image", "label"]),
-        ]
-    )
-
-    test_transform = Compose(
-        [
-            transforms.LoadImaged(keys=["image"]),
-            # transforms.CropForegroundd(
-            #     keys=["image"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
-            # ),
-            # transforms.SpatialPadd(keys=["image"], spatial_size=[roi_x, roi_y, roi_z]),
-            transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-            transforms.ToTensord(keys=["image"]),
-        ]
-    )
+    ) -> DataLoader:
+    files = data_read(datalist=datalist_json, basedir=data_dir)
+    if test_mode:
+        transform = Compose(
+            [
+                transforms.LoadImaged(keys=["image", "label"]),
+                # transforms.CropForegroundd(
+                #     keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
+                # ),
+                # transforms.SpatialPadd(keys=["image", "label"], spatial_size=[roi_x, roi_y, roi_z]),
+                transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+                transforms.ToTensord(keys=["image", "label"]),
+            ]
+        )
+    else:
+        transform = Compose(
+            [
+                transforms.LoadImaged(keys=["image", "label"]),
+                # transforms.CropForegroundd(
+                #     keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
+                # ),
+                # transforms.SpatialPadd(keys=["image", "label"], spatial_size=[roi_x, roi_y, roi_z]),
+                transforms.RandSpatialCropd(
+                    keys=["image", "label"], roi_size=[roi_x, roi_y, roi_z], random_center=True, random_size=False
+                ),
+                transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+                transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+                transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+                transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
+                transforms.RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+                transforms.RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+                transforms.ToTensord(keys=["image", "label"]),
+            ]
+        )
 
     if test_mode:
-        val_ds = BrainDataset(validation_files, transform=test_transform)
-        val_sampler = None
-        test_loader = DataLoader(
-            val_ds, batch_size=1, shuffle=False, num_workers=num_workers, sampler=val_sampler, pin_memory=True
+        dataset = BrainDataset(files, transform=transform)
+        loader = DataLoader(
+            dataset, batch_size=1, shuffle=False, num_workers=num_workers, sampler=None, pin_memory=False, prefetch_factor=1, persistent_workers=True
         )
-
-        loader = test_loader
     else:
-        train_ds = BrainDataset(train_files, transform=train_transform)
-
-        train_sampler = None
-        train_loader = DataLoader(
-            train_ds,
+        dataset = BrainDataset(files, transform=transform)
+        loader = DataLoader(
+            dataset,
             batch_size=batch_size,
-            shuffle=(train_sampler is None),
+            shuffle=True,
             num_workers=num_workers,
-            sampler=train_sampler,
-            pin_memory=True,
+            sampler=None,
+            pin_memory=False,
+            prefetch_factor=1,
+            persistent_workers=True
         )
-        val_ds = BrainDataset(validation_files, transform=val_transform)
-        val_sampler = None
-        val_loader = DataLoader(
-            val_ds, batch_size=1, shuffle=False, num_workers=num_workers, sampler=val_sampler, pin_memory=True
-        )
-        loader = [train_loader, val_loader]
 
     return loader
 
 
 def test():
-    # train_files, validation_files = data_read(datalist="jsons/train.json", basedir="dataset")
-    # loader = get_loader(data_dir="dataset/registered", datalist_json="jsons/test.json", test_mode=True, 
-    #                     roi_x=128, roi_y=128, roi_z=128, batch_size=1, num_workers=8)
-    # for i, batch in enumerate(loader):
-    #     print(batch.keys())
-    #     image = batch["image"]
-    #     print(image.shape) # torch.Size([1, 4, 256, 256, 24])
-    #     label = batch["label"]
-    #     print(label.shape) # torch.Size([1, 4, 256, 256, 24])
-
-    train_loader, valid_loader = get_loader(data_dir="dataset/registered", datalist_json="jsons/train.json", test_mode=False, 
+    train_loader = get_loader(data_dir="dataset/train_patches", datalist_json="jsons/train.json", test_mode=True, 
                                             roi_x=96, roi_y=96, roi_z=96, batch_size=1, num_workers=8)
-    print(len(train_loader), len(valid_loader))
+    print(len(train_loader))
 
     for i, batch in enumerate(train_loader):
         print(batch.keys()) # dict_keys(['image', 'label', 'affine', 'foreground_start_coord', 'foreground_end_coord'])
