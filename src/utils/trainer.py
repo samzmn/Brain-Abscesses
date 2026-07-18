@@ -123,9 +123,6 @@ def run_training(
         train_loss = train_epoch(
             model, train_loader, optimizer, epoch=epoch, loss_func=loss_func, device=device, max_epochs=max_epochs, batch_size=batch_size
         )
-        current_lr = 0.
-        if scheduler is not None:
-            current_lr = scheduler.get_lr()
         print(
             "Final training  {}/{}".format(epoch+1, max_epochs),
             "loss: {:.4f}".format(train_loss),
@@ -177,7 +174,8 @@ def run_training(
                 val_acc_max = val_avg_acc
                 if logdir is not None and save_best_checkpoint:
                     save_checkpoint(
-                        model, epoch, logdir, filename=f"model_epoch_{epoch}_{val_acc_max:.4f}.pt", best_acc=val_acc_max, optimizer=optimizer, scheduler=scheduler
+                        model, epoch, logdir, filename=f"model_epoch_{epoch+1}_{val_acc_max:.4f}.pt", 
+                        best_acc=val_acc_max, optimizer=optimizer, scheduler=scheduler
                     )
 
         if scheduler is not None:

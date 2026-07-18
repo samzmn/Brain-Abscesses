@@ -3,11 +3,12 @@ import torch
 from networks.swin import SwinUNETR
 
 class AbscessSwinUNETR(torch.nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, swin_unetr_model: SwinUNETR, swin_in_channels=4, feature_size=48):
+    def __init__(self, in_channels: int, out_channels: int, swin_unetr_model: SwinUNETR, swin_in_channels=4, feature_size=48, freeze_all=True):
         super(AbscessSwinUNETR, self).__init__()
-        for child in swin_unetr_model.children():
-            for param in child.parameters():
-                param.requires_grad = False
+        if freeze_all:
+            for child in swin_unetr_model.children():
+                for param in child.parameters():
+                    param.requires_grad = False
         
         self.swin_unetr = swin_unetr_model
         # self.input_conv = torch.nn.Sequential(

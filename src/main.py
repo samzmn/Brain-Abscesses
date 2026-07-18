@@ -15,18 +15,20 @@ from networks.model import AbscessSwinUNETR
 
 
 logdir = "./runs/train" # directory to save the tensorboard logs
-data_dir = "./dataset/train/" # dataset directory
-json_list = "./jsons/train.json" # dataset json file
+train_data_dir = "./dataset/train_patches/" # dataset directory
+valid_data_dir = "./dataset/final_labeled_dataset/"
+train_json_list = "./jsons/train.json" # dataset json file
+valid_json_list = "./jsons/valid.json"
 
-max_epochs = 300 # max number of training epochs
-batch_size = 2 # number of batch size
+max_epochs = 50 # max number of training epochs
+batch_size = 4 # number of batch size
 sw_batch_size = 1 #4 # number of sliding window batch size
-optim_lr = 1e-4 # optimization learning rate
+optim_lr = 1e-3 # 1e-4 # optimization learning rate
 optim_name = "adamw" # optimization algorithm
 reg_weight = 1e-5 # regularization weight
 momentum = 0.99 # momentum
-val_every = 10 #100 # validation frequency
-workers = 4 # number of workers
+val_every = 1 #100 # validation frequency
+n_workers = 8 # number of workers
 feature_size = 48 # feature size
 in_channels = 4 # number of input channels
 out_channels = 3 # number of output channels
@@ -45,11 +47,12 @@ roi_z = 96 # roi size in z direction
 # RandShiftIntensityd_prob = 0.1 # RandShiftIntensityd aug probability
 infer_overlap = 0.5 # sliding window inference overlap
 lrschedule = "warmup_cosine" # type of learning rate scheduler
-warmup_epochs = 50 # number of warmup epochs
+warmup_epochs = 8 #50 # number of warmup epochs
 
-checkpoint_dir = "./runs/train/model_epoch_29_0.0564.pt" # checkpoint dir to continue training from saved checkpoint
+checkpoint_dir = "./runs/train/out_trained/model_epoch_44_0.6279.pt" # checkpoint dir to continue training from saved checkpoint
+use_saved_epoch = False
 save_checkpoint = True # save checkpoint during training
-load_pretrained = True # Load original pretrained model from pretrained_dir, if False, load pretrained model from checkpoint
+load_pretrained = False # Load original pretrained model from pretrained_dir, if False, load pretrained model from checkpoint
 smooth_dr = 1e-6 # constant added to dice denominator to avoid nan
 smooth_nr = 0.0 # constant added to dice numerator to avoid zero
 use_grad_checkpoint = True # use gradient checkpointing to save memory
@@ -64,11 +67,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"running on device: {device}")
 
-    test_mode = False
-    loader = get_loader(data_dir, json_list, test_mode, roi_x, roi_y, roi_z, batch_size, workers)
+    train_loader = get_loader(train_data_dir, train_json_list, False, roi_x, roi_y, roi_z, batch_size, n_workers)
+    valid_loader = get_loader(valid_data_dir, valid_json_list, True, roi_x, roi_y, roi_z, 1, n_workers)
     print("Batch size is:", batch_size, "epochs", max_epochs)
-    inf_size = (roi_x, roi_y, roi_z)
-    pretrained_pth = os.path.join(pretrained_dir, pretrained_model_name)
 
     model = SwinUNETR(
         in_channels=in_channels,
@@ -78,7 +79,10 @@ def main():
     )
 
     if load_pretrained:
-        model_dict = torch.load(pretrained_pth, weights_only=False)["state_dict"]
+        model_dict = torch.load(
+            os.path.join(pretrained_dir, pretrained_model_name), 
+            weights_only=False
+        )["state_dict"]
         model.load_state_dict(model_dict)
         print("Using pretrained weights")
     else:
@@ -88,8 +92,10 @@ def main():
     print("Total SwinUNETR parameters count", pytorch_total_params)
     print()
 
-    model = AbscessSwinUNETR(5, 5, model, swin_in_channels=in_channels, feature_size=feature_size)
+    model = AbscessSwinUNETR(5, 5, model, swin_in_channels=in_channels, feature_size=feature_size, freeze_all=True)
     model.unfreeze_decoders(decoder1=False, decoder2=False, decoder3=False, decoder4=False, decoder5=False)
+    # model.unfreeze_encoders(True, True, True, True, True)
+    # model.unfreeze_transformers()
 
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Total Abscess-SwinUNETR parameters count", pytorch_total_params)
@@ -100,9 +106,9 @@ def main():
     if checkpoint_dir is not None:
         checkpoint = torch.load(checkpoint_dir, weights_only=False)
         model.load_state_dict(checkpoint["state_dict"])
-        if "epoch" in checkpoint:
+        if "epoch" in checkpoint and use_saved_epoch:
             start_epoch = checkpoint["epoch"]
-        if "best_acc" in checkpoint:
+        if "best_acc" in checkpoint and use_saved_epoch:
             best_acc = checkpoint["best_acc"]
         print("=> loaded checkpoint '{}' (epoch {}) (bestacc {})".format(checkpoint_dir, start_epoch, best_acc))
 
@@ -141,7 +147,7 @@ def main():
 
     model_test_inferer = partial(
         sliding_window_inference,
-        roi_size=inf_size,
+        roi_size=(roi_x, roi_y, roi_z),
         sw_batch_size=sw_batch_size,
         predictor=model,
         overlap=infer_overlap,
@@ -153,8 +159,8 @@ def main():
 
     accuracy = run_training(
         model=model,
-        train_loader=loader[0],
-        val_loader=loader[1],
+        train_loader=train_loader,
+        val_loader=valid_loader,
         optimizer=optimizer,
         loss_func=dice_loss,
         acc_func=dice_acc,
