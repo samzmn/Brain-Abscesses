@@ -21,21 +21,18 @@ train_json_list = "./jsons/train.json" # dataset json file
 valid_json_list = "./jsons/valid.json"
 
 max_epochs = 50 # max number of training epochs
-batch_size = 4 # number of batch size
+batch_size = 2 # number of batch size
 sw_batch_size = 1 #4 # number of sliding window batch size
-optim_lr = 1e-3 # 1e-4 # optimization learning rate
+optim_lr = 1e-4 # 1e-4 # optimization learning rate
 optim_name = "adamw" # optimization algorithm
 reg_weight = 1e-5 # regularization weight
 momentum = 0.99 # momentum
 val_every = 1 #100 # validation frequency
-n_workers = 8 # number of workers
+n_workers = 4 # number of workers
 feature_size = 48 # feature size
 in_channels = 4 # number of input channels
 out_channels = 3 # number of output channels
-# a_min = -175.0 # a_min in ScaleIntensityRanged
-# a_max = 250.0 # a_max in ScaleIntensityRanged
-# b_min = 0.0 # b_min in ScaleIntensityRanged
-# b_max = 1.0 # b_max in ScaleIntensityRanged
+
 roi_x = 96 # roi size in x direction
 roi_y = 96 # roi size in y direction
 roi_z = 96 # roi size in z direction
@@ -47,19 +44,21 @@ roi_z = 96 # roi size in z direction
 # RandShiftIntensityd_prob = 0.1 # RandShiftIntensityd aug probability
 infer_overlap = 0.5 # sliding window inference overlap
 lrschedule = "warmup_cosine" # type of learning rate scheduler
-warmup_epochs = 8 #50 # number of warmup epochs
+warmup_epochs = 5 #50 # number of warmup epochs
+smooth_dr = 1e-6 # constant added to dice denominator to avoid nan
+smooth_nr = 0.0 # constant added to dice numerator to avoid zero
+squared_dice = True # use squared Dice
+include_background = False
 
-checkpoint_dir = "./runs/train/out_trained/model_epoch_44_0.6279.pt" # checkpoint dir to continue training from saved checkpoint
+checkpoint_dir = "./runs/train/out_dec1_trained/model_epoch_38_0.7663.pt" # checkpoint dir to continue training from saved checkpoint
 use_saved_epoch = False
 save_checkpoint = True # save checkpoint during training
 load_pretrained = False # Load original pretrained model from pretrained_dir, if False, load pretrained model from checkpoint
-smooth_dr = 1e-6 # constant added to dice denominator to avoid nan
-smooth_nr = 0.0 # constant added to dice numerator to avoid zero
-use_grad_checkpoint = True # use gradient checkpointing to save memory
 pretrained_dir = "./pretrained_models/fold1_f48_ep300_4gpu_dice0_9059/" # pretrained checkpoint directory
 pretrained_model_name = "model.pt" # pretrained model name
-squared_dice = True # use squared Dice
-include_background = False
+
+use_grad_checkpoint = False # use gradient checkpointing to save memory
+use_amp = True # use auto mixed precision for training
 
 def main():
     np.set_printoptions(formatter={"float": "{: 0.3f}".format}, suppress=True)
@@ -93,8 +92,8 @@ def main():
     print()
 
     model = AbscessSwinUNETR(5, 5, model, swin_in_channels=in_channels, feature_size=feature_size, freeze_all=True)
-    model.unfreeze_decoders(decoder1=False, decoder2=False, decoder3=False, decoder4=False, decoder5=False)
-    # model.unfreeze_encoders(True, True, True, True, True)
+    model.unfreeze_decoders(decoder1=True, decoder2=False, decoder3=False, decoder4=False, decoder5=False)
+    model.unfreeze_encoders(encoder1=True, encoder2=False, encoder3=False, encoder4=False, encoder10=False)
     # model.unfreeze_transformers()
 
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)

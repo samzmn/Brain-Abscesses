@@ -218,23 +218,6 @@ class SwinTransformer(nn.Module):
                 self.layers3.append(layer)
             elif i_layer == 3:
                 self.layers4.append(layer)
-            # if self.use_v2:
-            #     layerc = UnetrBasicBlock(
-            #         in_channels=embed_dim * 2**i_layer,
-            #         out_channels=embed_dim * 2**i_layer,
-            #         kernel_size=3,
-            #         stride=1,
-            #         norm_name="instance",
-            #         res_block=True,
-            #     )
-            #     if i_layer == 0:
-            #         self.layers1c.append(layerc)
-            #     elif i_layer == 1:
-            #         self.layers2c.append(layerc)
-            #     elif i_layer == 2:
-            #         self.layers3c.append(layerc)
-            #     elif i_layer == 3:
-            #         self.layers4c.append(layerc)
 
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
 

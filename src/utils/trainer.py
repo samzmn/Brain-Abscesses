@@ -127,11 +127,13 @@ def run_training(
             "Final training  {}/{}".format(epoch+1, max_epochs),
             "loss: {:.4f}".format(train_loss),
             "time {:.2f}s".format(time.time() - epoch_time),
-            f"LR scheduler {scheduler.get_last_lr() if scheduler is not None else 0.}, ",
-            f"optim {optimizer.param_groups[0]['lr']}, init lr {optimizer.param_groups[0]['initial_lr']}"
+            # f"LR scheduler {scheduler.get_last_lr() if scheduler is not None else 0.}, ",
+            f"LR {optimizer.param_groups[0]['lr']}"
         )
         if writer is not None:
             writer.add_scalar("train_loss", train_loss, epoch)
+            writer.add_scalar("Learning_Rate", optimizer.param_groups[0]['lr'], epoch)
+            writer.add_scalar("Epoch_Time", time.time() - epoch_time, epoch)
             
         if (epoch + 1) % val_every == 0:
             epoch_time = time.time()
