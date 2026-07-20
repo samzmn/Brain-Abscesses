@@ -1,14 +1,27 @@
 import os
 import time
+from typing import Any, List
 
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from torch.amp import GradScaler, autocast
 
 from utils.utils import AverageMeter
+from utils.metrics import DiceMetric
 
 
-def train_epoch(model, loader, optimizer, epoch, loss_func, device, max_epochs, batch_size):
+def train_epoch(model: torch.nn.Module,
+                loader: torch.utils.data.DataLoader,
+                optimizer: torch.optim.Optimizer,
+                epoch: int,
+                loss_func: torch.nn.Module,
+                device: str,
+                max_epochs: int, 
+                batch_size: int,
+                use_amp: bool, 
+                scaler: GradScaler | None
+) -> int | np.typing.NDArray[Any]:
     model.train()
     start_time = time.time()
     run_loss = AverageMeter()
@@ -19,12 +32,19 @@ def train_epoch(model, loader, optimizer, epoch, loss_func, device, max_epochs, 
             data, target = batch_data["image"], batch_data["label"]
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        
-        logits = model(data)
-        loss = loss_func(logits, target)
 
-        loss.backward()
-        optimizer.step()
+        with autocast(device_type=str(device), enabled=use_amp):
+            logits = model(data)
+            loss = loss_func(logits, target)
+
+        if use_amp:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
+
         run_loss.update(loss.item(), n=batch_size)
 
         print(
@@ -38,7 +58,15 @@ def train_epoch(model, loader, optimizer, epoch, loss_func, device, max_epochs, 
     return run_loss.avg
 
 
-def val_epoch(model, loader, epoch, acc_func, device, model_inferer, max_epochs):
+def val_epoch(model: torch.nn.Module,
+              loader: torch.utils.data.DataLoader,
+              epoch: int,
+              acc_func: DiceMetric,
+              device: str,
+              model_inferer,
+              max_epochs:int,
+              use_amp: bool,
+) -> torch.Tensor:
     model.eval()
     start_time = time.time()
     # run_acc = AverageMeter()
@@ -47,19 +75,19 @@ def val_epoch(model, loader, epoch, acc_func, device, model_inferer, max_epochs)
         for idx, batch_data in enumerate(loader):
             data, target = batch_data["image"], batch_data["label"]
             data, target = data.to(device), target.to(device)
+            y_preds = []
             for image in data:
-                logit = model_inferer(image)
-            y_pred = torch.argmax(logit, dim=0, keepdim=True)
-            y_pred, target = y_pred.unsqueeze(0), target.unsqueeze(0)
-            # print("y_pred shape: ", y_pred.shape)
-            # print("target shape: ", target.shape)
+                with autocast(device_type=str(device), enabled=use_amp):
+                    logit = model_inferer(image)
+                    y_pred = torch.argmax(logit, dim=0, keepdim=True)
+                    y_preds.append(y_pred[None, ...])
+            y_preds = torch.concat(y_preds, dim=0)
+            target = target[:, None, ...]
             acc_func.reset()
-            acc_func.update(y_pred=y_pred, y=target)
+            acc_func.update(y_pred=y_preds, y=target)
             acc = acc_func.aggregate()
             # acc = acc.to(device)
-            # print("acc lengh: ", len(acc))
             # run_acc.update(acc.cpu().numpy(), n=1)
-            # print("length of run_acc", run_acc.avg)
             print(
                 "Val {}/{} {}/{}".format(epoch+1, max_epochs, idx+1, len(loader)),
                 ", Dice_Br:",
@@ -73,6 +101,8 @@ def val_epoch(model, loader, epoch, acc_func, device, model_inferer, max_epochs)
                 # run_acc.avg[2],
                 ", Dice_Rg:",
                 acc[3],
+                ", MEAN:",
+                acc.mean(),
                 ", time {:.2f}s".format(time.time() - start_time),
             )
             start_time = time.time()
@@ -81,7 +111,14 @@ def val_epoch(model, loader, epoch, acc_func, device, model_inferer, max_epochs)
     return acc
 
 
-def save_checkpoint(model, epoch, logdir, filename="model.pt", best_acc=0, optimizer=None, scheduler=None):
+def save_checkpoint(model: torch.nn.Module,
+                    epoch: int,
+                    logdir: str,
+                    filename: str="model.pt",
+                    best_acc: int=0,
+                    optimizer: torch.optim.Optimizer | None=None, 
+                    scheduler: torch.optim.lr_scheduler._LRScheduler | None=None
+) -> None:
     state_dict = model.state_dict()
     save_dict = {"epoch": epoch, "best_acc": best_acc, "state_dict": state_dict}
     if optimizer is not None:
@@ -98,30 +135,35 @@ def run_training(
     train_loader: torch.utils.data.DataLoader,
     val_loader: torch.utils.data.DataLoader,
     optimizer: torch.optim.Optimizer,
-    loss_func,
+    loss_func: torch.nn.Module,
     acc_func,
-    batch_size,
-    logdir=None,
+    batch_size: int,
+    use_amp: bool=False,
+    logdir: str | None=None,
     model_inferer=None,
-    val_every=10,
-    save_best_checkpoint=True,
-    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
-    start_epoch=0,
-    max_epochs=300,
-    semantic_classes=None,
-    device = "cuda",
-):
+    val_every: int=10,
+    save_best_checkpoint: bool=True,
+    scheduler: torch.optim.lr_scheduler._LRScheduler | None = None,
+    start_epoch: int=0,
+    max_epochs: int=300,
+    semantic_classes: List[str]=None,
+    device: torch.types.Device = "cuda",
+) -> float:
     writer = None
     if logdir is not None:
         writer = SummaryWriter(log_dir=logdir)
         print("Writing Tensorboard logs to ", logdir)
+
+    scaler = None
+    if use_amp:
+        scaler = GradScaler(device=device)
         
     val_acc_max = 0.0
     for epoch in range(start_epoch, max_epochs):
         print(time.ctime(), "Epoch:", epoch+1)
         epoch_time = time.time()
         train_loss = train_epoch(
-            model, train_loader, optimizer, epoch=epoch, loss_func=loss_func, device=device, max_epochs=max_epochs, batch_size=batch_size
+            model, train_loader, optimizer, epoch, loss_func, device, max_epochs, batch_size, use_amp, scaler
         )
         print(
             "Final training  {}/{}".format(epoch+1, max_epochs),
@@ -140,17 +182,19 @@ def run_training(
             val_acc = val_epoch(
                 model,
                 val_loader,
-                epoch=epoch,
-                acc_func=acc_func,
-                model_inferer=model_inferer,
-                device=device,
-                max_epochs=max_epochs
-            )
+                epoch,
+                acc_func,
+                device,
+                model_inferer,
+                max_epochs,
+                use_amp
+            ).numpy()
 
             Dice_Br = val_acc[0]
             Dice_Ed = val_acc[1]
             Dice_Ab = val_acc[2]
             Dice_Rg = val_acc[3]
+            val_avg_acc = val_acc.mean()
             print(
                 "Final validation stats {}/{}".format(epoch+1, max_epochs),
                 ", Dice_Br:",
@@ -161,16 +205,18 @@ def run_training(
                 Dice_Ab,
                 ", Dice_Rg:",
                 Dice_Rg,
+                ", MEAN:",
+                val_avg_acc,
                 ", time {:.2f}s".format(time.time() - epoch_time),
             )
 
             if writer is not None:
-                writer.add_scalar("Mean_Val_Dice", np.array(val_acc.mean()), epoch)
+                writer.add_scalar("Mean_Val_Dice", val_avg_acc, epoch)
                 if semantic_classes is not None:
                     for val_channel_ind in range(len(semantic_classes)):
                         if val_channel_ind < len(val_acc):
                             writer.add_scalar(semantic_classes[val_channel_ind], val_acc[val_channel_ind], epoch)
-            val_avg_acc = np.array(val_acc.mean())
+            
             if val_avg_acc > val_acc_max:
                 print("new best ({:.6f} --> {:.6f}). ".format(val_acc_max, val_avg_acc))
                 val_acc_max = val_avg_acc

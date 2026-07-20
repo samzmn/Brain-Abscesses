@@ -14,16 +14,16 @@ from networks.swin import SwinUNETR
 from networks.model import AbscessSwinUNETR
 
 
-logdir = "./runs/train" # directory to save the tensorboard logs
+logdir = "./runs/train/all" # directory to save the tensorboard logs
 train_data_dir = "./dataset/train_patches/" # dataset directory
 valid_data_dir = "./dataset/final_labeled_dataset/"
 train_json_list = "./jsons/train.json" # dataset json file
 valid_json_list = "./jsons/valid.json"
 
 max_epochs = 50 # max number of training epochs
-batch_size = 2 # number of batch size
+batch_size = 1 # number of batch size
 sw_batch_size = 1 #4 # number of sliding window batch size
-optim_lr = 1e-4 # 1e-4 # optimization learning rate
+optim_lr = 1e-5 # 1e-4 # optimization learning rate
 optim_name = "adamw" # optimization algorithm
 reg_weight = 1e-5 # regularization weight
 momentum = 0.99 # momentum
@@ -50,14 +50,14 @@ smooth_nr = 0.0 # constant added to dice numerator to avoid zero
 squared_dice = True # use squared Dice
 include_background = False
 
-checkpoint_dir = "./runs/train/out_dec1_trained/model_epoch_38_0.7663.pt" # checkpoint dir to continue training from saved checkpoint
+checkpoint_dir = "./runs/train//model_epoch_1_0.7665.pt" # checkpoint dir to continue training from saved checkpoint
 use_saved_epoch = False
 save_checkpoint = True # save checkpoint during training
 load_pretrained = False # Load original pretrained model from pretrained_dir, if False, load pretrained model from checkpoint
 pretrained_dir = "./pretrained_models/fold1_f48_ep300_4gpu_dice0_9059/" # pretrained checkpoint directory
 pretrained_model_name = "model.pt" # pretrained model name
 
-use_grad_checkpoint = False # use gradient checkpointing to save memory
+use_grad_checkpoint = True # use gradient checkpointing to save memory
 use_amp = True # use auto mixed precision for training
 
 def main():
@@ -92,9 +92,9 @@ def main():
     print()
 
     model = AbscessSwinUNETR(5, 5, model, swin_in_channels=in_channels, feature_size=feature_size, freeze_all=True)
-    model.unfreeze_decoders(decoder1=True, decoder2=False, decoder3=False, decoder4=False, decoder5=False)
-    model.unfreeze_encoders(encoder1=True, encoder2=False, encoder3=False, encoder4=False, encoder10=False)
-    # model.unfreeze_transformers()
+    model.unfreeze_decoders(decoder1=True, decoder2=True, decoder3=True, decoder4=True, decoder5=True)
+    model.unfreeze_encoders(encoder1=True, encoder2=True, encoder3=True, encoder4=True, encoder10=True)
+    model.unfreeze_transformers()
 
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Total Abscess-SwinUNETR parameters count", pytorch_total_params)
@@ -164,6 +164,7 @@ def main():
         loss_func=dice_loss,
         acc_func=dice_acc,
         batch_size=batch_size,
+        use_amp=use_amp,
         logdir=logdir,
         model_inferer=model_test_inferer,
         val_every=val_every,
