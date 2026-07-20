@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Dict, Union, Tuple
 import nibabel as nib
 import numpy as np
@@ -25,6 +27,7 @@ class LoadImaged:
                     img, aff = self._load_nifti(f)
                     if i == 0: # only save the first image's affine
                         data["affine"] = aff
+                        data["id"] = str(Path(f).parent.name)
                     channels.append(img)
                 # (C, H, W, D)
                 data[key] = np.stack(channels, axis=0)

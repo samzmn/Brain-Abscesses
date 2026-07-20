@@ -83,7 +83,8 @@ def get_loader(
     if test_mode:
         dataset = BrainDataset(files, transform=transform)
         loader = DataLoader(
-            dataset, batch_size=1, shuffle=False, num_workers=num_workers, sampler=None, pin_memory=False, prefetch_factor=1, persistent_workers=True
+            dataset, batch_size=batch_size, shuffle=False, sampler=None, 
+             num_workers=num_workers, pin_memory=False, prefetch_factor=1, persistent_workers=True
         )
     else:
         dataset = BrainDataset(files, transform=transform)
