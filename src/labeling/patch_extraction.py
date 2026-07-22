@@ -6,6 +6,9 @@ import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
 
+import train_json
+import valid_json
+
 class SpatialPad:
     def __init__(
         self,
@@ -113,7 +116,7 @@ def data_read(path) -> Tuple[np.array, np.array]:
     data = nib.load(path)
     data = nib.as_closest_canonical(data)   # Converts to RAS
     img = data.get_fdata().astype(np.float32)
-    affine =data.affine
+    affine = data.affine
     # print(f"{path}", nib.aff2axcodes(affine))
     return img, affine
 
@@ -140,7 +143,7 @@ def save_patch(
         patch_dir / f"subject{subject_id:03d}_patch{patch_index:03d}_label.nii.gz",
     )
 
-def keep_patch(label):
+def keep_patch(label, brain_keep_treshold=0.15, brain_keep_prob=0.25):
     total = label.size
 
     brain = np.count_nonzero(label == 1.)
@@ -160,8 +163,8 @@ def keep_patch(label):
         return True
 
     # Keep patches containing meaningful brain
-    if brain_ratio > 0.15:
-        return random.random() < 0.25
+    if brain_ratio > brain_keep_treshold:
+        return random.random() < brain_keep_prob
 
     # Discard nearly empty patches
     return False
@@ -256,7 +259,7 @@ def extract_patches(
                     ]
 
                     label_patch = label_patch.copy()
-                    if not keep_patch(label_patch):
+                    if not keep_patch(label_patch, brain_keep_treshold=0.0, brain_keep_prob=1.0):
                         continue
                     
                     assert label_patch.shape == (roi_x, roi_y, roi_z)
@@ -288,19 +291,14 @@ def extract_patches(
         print(f"    to {patch_id - 1} patches")
 
 
-
-def test():
-    print(compute_patch_starts(225, 96, 48))
-    patients = data_files(basedir="./dataset/final_labeled_dataset")
-    for p, v in patients.items():
-        print(p, v)
-
-
 def main():
     data_dir = "./dataset/final_labeled_dataset"
     output_dir = "./dataset/train_patches"
-    roi_x, roi_y, roi_z = 124, 124, 124
+    roi_x, roi_y, roi_z = 101, 101, 101
     extract_patches(data_dir, output_dir, roi_x, roi_y, roi_z)
+    train_json.create_json(Path(output_dir))
+    valid_json.create_json(Path(data_dir))
+
 
 if __name__ == "__main__":
     main()

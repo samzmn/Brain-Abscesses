@@ -1,70 +1,65 @@
 import json
 from pathlib import Path
 
-# -----------------------------------------------------------------------------
-# Configuration
-# -----------------------------------------------------------------------------
 
-dataset_root = Path("./dataset/train_patches")
-output_json = Path("./jsons/train.json")
+def create_json(
+    dataset_root = Path("./dataset/train_patches"),
+    output_json = Path("./jsons/train.json"),
+    # Order of modalities expected by the model
+    modalities = [
+        "FLAIR",
+        "T1C",
+        "T1",
+        "T2",
+        # "ADC",
+    ]
+):
+    train_list = []
 
-# Order of modalities expected by the model
-modalities = [
-    "FLAIR",
-    "T1C",
-    "T1",
-    "T2",
-    # "ADC",
-]
+    # Sort folders numerically
+    subject_dirs = sorted(
+        [d for d in dataset_root.iterdir() if d.is_dir()],
+        key=lambda x: int(x.name.strip().split('_')[0].replace('subject', ''))
+    )
 
-# -----------------------------------------------------------------------------
+    for subject_dir in subject_dirs:
 
-train_list = []
+        image_files = []
+        missing = False
 
-# Sort folders numerically
-subject_dirs = sorted(
-    [d for d in dataset_root.iterdir() if d.is_dir()],
-    key=lambda x: int(x.name.strip().split('_')[0].replace('subject', ''))
-)
+        for modality in modalities:
+            matches = list(subject_dir.glob(f"*_{modality}.nii.gz"))
 
-for subject_dir in subject_dirs:
+            if len(matches) != 1:
+                print(f"Skipping {subject_dir.name}: missing {modality}")
+                missing = True
+                break
 
-    image_files = []
-    missing = False
+            # relative path
+            image_files.append(str(matches[0].relative_to(dataset_root)).replace("\\", "/"))
 
-    for modality in modalities:
-        matches = list(subject_dir.glob(f"*_{modality}.nii.gz"))
+        if missing:
+            continue
 
-        if len(matches) != 1:
-            print(f"Skipping {subject_dir.name}: missing {modality}")
-            missing = True
-            break
+        label_name = f"{subject_dir.name}_label.nii.gz"
+        label_path = subject_dir / label_name
 
-        # relative path
-        image_files.append(str(matches[0].relative_to(dataset_root)).replace("\\", "/"))
+        if not label_path.exists():
+            print(f"Skipping {subject_dir.name}: missing label")
+            continue
 
-    if missing:
-        continue
+        train_list.append({
+            "image": image_files,
+            "label": str(label_path.relative_to(dataset_root)).replace("\\", "/")
+        })
 
-    label_name = f"{subject_dir.name}_label.nii.gz"
-    label_path = subject_dir / label_name
+    # -----------------------------------------------------------------------------
 
-    if not label_path.exists():
-        print(f"Skipping {subject_dir.name}: missing label")
-        continue
+    json_dict = {
+        "train": train_list
+    }
 
-    train_list.append({
-        "image": image_files,
-        "label": str(label_path.relative_to(dataset_root)).replace("\\", "/")
-    })
+    with open(output_json, "w") as f:
+        json.dump(json_dict, f, indent=4)
 
-# -----------------------------------------------------------------------------
-
-json_dict = {
-    "train": train_list
-}
-
-with open(output_json, "w") as f:
-    json.dump(json_dict, f, indent=4)
-
-print(f"Saved {len(train_list)} training samples to {output_json}")
+    print(f"Saved {len(train_list)} training samples to {output_json}")
