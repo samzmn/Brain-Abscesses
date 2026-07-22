@@ -159,6 +159,7 @@ def run_training(
         scaler = GradScaler(device=device)
         
     val_acc_max = 0.0
+    train_loss_min = np.inf
     for epoch in range(start_epoch, max_epochs):
         print(time.ctime(), "Epoch:", epoch+1)
         epoch_time = time.time()
@@ -176,7 +177,14 @@ def run_training(
             writer.add_scalar("train_loss", train_loss, epoch)
             writer.add_scalar("Learning_Rate", optimizer.param_groups[0]['lr'], epoch)
             writer.add_scalar("Epoch_Time", time.time() - epoch_time, epoch)
-            
+
+        if train_loss < train_loss_min:
+            train_loss_min = train_loss
+            save_checkpoint(
+                model, epoch, logdir, filename=f"model_epoch_{epoch+1}_loss_{train_loss_min:.4f}.pt", 
+                best_acc=val_acc_max, optimizer=optimizer, scheduler=scheduler
+            )
+
         if (epoch + 1) % val_every == 0:
             epoch_time = time.time()
             val_acc = val_epoch(

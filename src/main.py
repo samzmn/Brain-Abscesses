@@ -14,53 +14,51 @@ from networks.swin import SwinUNETR
 from networks.model import AbscessSwinUNETR
 
 
-logdir = "./runs/train/all" # directory to save the tensorboard logs
-train_data_dir = "./dataset/train_patches/" # dataset directory
-valid_data_dir = "./dataset/final_labeled_dataset/"
-train_json_list = "./jsons/train.json" # dataset json file
-valid_json_list = "./jsons/valid.json"
+def main(
+    logdir = "./runs/train/out_dec1_dec2_wbg_2_trained", # directory to save the tensorboard logs
+    train_data_dir = "./dataset/train_patches/", # dataset directory
+    valid_data_dir = "./dataset/final_labeled_dataset/",
+    train_json_list = "./jsons/train.json", # dataset json file
+    valid_json_list = "./jsons/valid.json",
 
-max_epochs = 50 # max number of training epochs
-batch_size = 1 # number of batch size
-sw_batch_size = 1 #4 # number of sliding window batch size
-optim_lr = 1e-5 # 1e-4 # optimization learning rate
-optim_name = "adamw" # optimization algorithm
-reg_weight = 1e-5 # regularization weight
-momentum = 0.99 # momentum
-val_every = 1 #100 # validation frequency
-n_workers = 4 # number of workers
-feature_size = 48 # feature size
-in_channels = 4 # number of input channels
-out_channels = 3 # number of output channels
+    max_epochs = 20, # max number of training epochs
+    batch_size = 2, # number of batch size
+    sw_batch_size = 1, #4 # number of sliding window batch size
+    optim_lr = 1e-4, # 1e-4 # optimization learning rate
+    optim_name = "adamw", # optimization algorithm
+    reg_weight = 1e-5, # regularization weight
+    momentum = 0.99, # momentum
+    val_every = 1, #100 # validation frequency
+    n_workers = 4, # number of workers
+    feature_size = 48, # feature size
 
-roi_x = 96 # roi size in x direction
-roi_y = 96 # roi size in y direction
-roi_z = 96 # roi size in z direction
-# dropout_rate = 0.0 # dropout rate
-# dropout_path_rate = 0.0 # drop path rate
-# RandFlipd_prob = 0.2 # RandFlipd aug probability
-# RandRotate90d_prob = 0.2 # RandRotate90d aug probability
-# RandScaleIntensityd_prob = 0.1 # RandScaleIntensityd aug probability
-# RandShiftIntensityd_prob = 0.1 # RandShiftIntensityd aug probability
-infer_overlap = 0.5 # sliding window inference overlap
-lrschedule = "warmup_cosine" # type of learning rate scheduler
-warmup_epochs = 5 #50 # number of warmup epochs
-smooth_dr = 1e-6 # constant added to dice denominator to avoid nan
-smooth_nr = 0.0 # constant added to dice numerator to avoid zero
-squared_dice = True # use squared Dice
-include_background = False
+    roi_x = 96, # roi size in x direction
+    roi_y = 96, # roi size in y direction
+    roi_z = 96, # roi size in z direction
+    # dropout_rate = 0.0 # dropout rate
+    # dropout_path_rate = 0.0 # drop path rate
+    # RandFlipd_prob = 0.2 # RandFlipd aug probability
+    # RandRotate90d_prob = 0.2 # RandRotate90d aug probability
+    # RandScaleIntensityd_prob = 0.1 # RandScaleIntensityd aug probability
+    # RandShiftIntensityd_prob = 0.1 # RandShiftIntensityd aug probability
+    infer_overlap = 0.5, # sliding window inference overlap
+    lrschedule = "warmup_cosine", # type of learning rate scheduler
+    warmup_epochs = 4, #50 # number of warmup epochs
+    smooth_dr = 1e-6, # constant added to dice denominator to avoid nan
+    smooth_nr = 0.0, # constant added to dice numerator to avoid zero
+    squared_dice = True, # use squared Dice
+    include_background = True,
 
-checkpoint_dir = "./runs/train//model_epoch_1_0.7665.pt" # checkpoint dir to continue training from saved checkpoint
-use_saved_epoch = False
-save_checkpoint = True # save checkpoint during training
-load_pretrained = False # Load original pretrained model from pretrained_dir, if False, load pretrained model from checkpoint
-pretrained_dir = "./pretrained_models/fold1_f48_ep300_4gpu_dice0_9059/" # pretrained checkpoint directory
-pretrained_model_name = "model.pt" # pretrained model name
+    checkpoint_dir = "./runs/train/out_dec1_dec2_wbg_trained/model_epoch_9_loss_0.6778.pt", # checkpoint dir to continue training from saved checkpoint
+    use_saved_epoch = False,
+    save_checkpoint = True, # save checkpoint during training
+    load_pretrained = True, # Load original pretrained model from pretrained_dir, if False, load pretrained model from checkpoint
+    pretrained_dir = "./pretrained_models/fold1_f48_ep300_4gpu_dice0_9059/", # pretrained checkpoint directory
+    pretrained_model_name = "model.pt", # pretrained model name
 
-use_grad_checkpoint = True # use gradient checkpointing to save memory
-use_amp = True # use auto mixed precision for training
-
-def main():
+    use_grad_checkpoint = True, # use gradient checkpointing to save memory
+    use_amp = False, # use auto mixed precision for training
+):
     np.set_printoptions(formatter={"float": "{: 0.3f}".format}, suppress=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,8 +69,8 @@ def main():
     print("Batch size is:", batch_size, "epochs", max_epochs)
 
     model = SwinUNETR(
-        in_channels=in_channels,
-        out_channels=out_channels,
+        in_channels=4,
+        out_channels=3,
         feature_size=feature_size,
         use_checkpoint=use_grad_checkpoint,
     )
@@ -91,10 +89,10 @@ def main():
     print("Total SwinUNETR parameters count", pytorch_total_params)
     print()
 
-    model = AbscessSwinUNETR(5, 5, model, swin_in_channels=in_channels, feature_size=feature_size, freeze_all=True)
-    model.unfreeze_decoders(decoder1=True, decoder2=True, decoder3=True, decoder4=True, decoder5=True)
-    model.unfreeze_encoders(encoder1=True, encoder2=True, encoder3=True, encoder4=True, encoder10=True)
-    model.unfreeze_transformers()
+    model = AbscessSwinUNETR(4, 5, model, swin_in_channels=4, feature_size=feature_size, freeze_all=True)
+    model.unfreeze_decoders(decoder1=True, decoder2=True, decoder3=False, decoder4=False, decoder5=False)
+    model.unfreeze_encoders(encoder1=False, encoder2=False, encoder3=False, encoder4=False, encoder10=False)
+    # model.unfreeze_transformers()
 
     pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Total Abscess-SwinUNETR parameters count", pytorch_total_params)
@@ -120,7 +118,7 @@ def main():
     else:
         dice_loss = DiceLoss(include_background=include_background, to_onehot_y=True, from_logits=True)
 
-    dice_acc = DiceMetric(include_background=include_background, reduction="mean_batch", num_classes=5)
+    dice_acc = DiceMetric(include_background=False, reduction="mean_batch", num_classes=5)
 
     if optim_name == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=optim_lr, weight_decay=reg_weight)

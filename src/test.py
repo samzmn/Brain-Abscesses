@@ -4,6 +4,7 @@ from functools import partial
 import nibabel as nib
 import numpy as np
 import torch
+from torch.amp import autocast
 
 from data.data_utils import get_loader
 from utils.inferers import sliding_window_inference
@@ -23,9 +24,9 @@ def main(
     json_list = "./jsons/test.json",
     batch_size = 1,
     n_workers = 4,
-    checkpoint_dir: str | None = "./runs/train/out_dec1_trained/model_epoch_38_0.7663.pt", # checkpoint dir to continue training from saved checkpoint
+    checkpoint_dir: str | None = "./runs/train/out_dec1_dec2_enc1_trained/model_epoch_28_loss_0.8834.pt", # checkpoint dir to continue training from saved checkpoint
     load_pretrained = False,
-    use_amp = False,
+    use_amp = True,
     has_label = True,
 ):
     roi_x, roi_y, roi_z = roi
@@ -99,8 +100,9 @@ def main(
                 img_name = "patient_237_out_f1.nii.gz"
                 nib.save(nib.Nifti1Image(seg_out.astype(np.uint8), affine), os.path.join(output_directory, img_name))
             else:
-                logit = model_inferer_test(image)
-                y_pred = torch.argmax(logit, dim=0, keepdim=True)
+                with autocast(device_type=str(device), enabled=use_amp):
+                    logit = model_inferer_test(image)
+                    y_pred = torch.argmax(logit, dim=0, keepdim=True)
 
                 acc_mean = 1.0
                 if has_label:
@@ -119,7 +121,7 @@ def main(
                         ", Dice_Rg:", acc[3].item(),
                         ", MEAN", acc_mean
                     )
-                img_name = f"subject_{batch['id'][0]}_out_{acc_mean:.3f}.nii.gz"
+                img_name = f"subject_{batch['id'][0]}_out_{acc_mean:.3f}_1.nii.gz"
                 nib.save(nib.Nifti1Image(y_pred.squeeze().numpy().astype(np.uint8), affine), os.path.join(output_directory, img_name))
 
             # pred = torch.sigmoid(model_inferer_test(image[0]))
