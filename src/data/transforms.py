@@ -3,19 +3,22 @@ from pathlib import Path
 from typing import Dict, Union, Tuple
 import nibabel as nib
 import numpy as np
+from numpy.typing import NDArray, ArrayLike, DTypeLike
 import torch
 np.random.seed(47)
 np.random.RandomState(47)
 
 class LoadImaged:
-    def __init__(self, keys):
+    def __init__(self, keys, n_classes, to_one_hot_y=True):
         self.keys = keys
+        self.n_classes = n_classes
+        self.to_one_hot_y = to_one_hot_y
 
-    def _load_nifti(self, path: str) -> Tuple[np.array, np.array]:
+    def _load_nifti(self, path: str, dtype: np.typing.DTypeLike=np.float32) -> Tuple[NDArray, NDArray]:
         img = nib.load(path)
-        return img.get_fdata().astype(np.float32), img.affine
+        return img.get_fdata().astype(dtype), img.affine
 
-    def __call__(self, data: Dict[str, Union[list|str]]):
+    def __call__(self, data: Dict[str, Union[list[str]|str]]):
         for key in self.keys:
             value = data[key]
 
@@ -37,8 +40,14 @@ class LoadImaged:
             else: # instance of str
                 volume = self._load_nifti(value)[0]
 
-                # Label remains (H, W, D)
-                data[key] = volume
+                if not self.to_one_hot_y:
+                    # Label remains (H, W, D)
+                    data[key] = volume
+                else:
+                    # Label to one-hot (N_classe, H, W, D)
+                    label = volume.astype(np.int64)
+                    one_hot = np.eye(self.n_classes, dtype=np.uint8)[label]
+                    data[key] = np.moveaxis(one_hot, -1, 0)
 
         return data
 

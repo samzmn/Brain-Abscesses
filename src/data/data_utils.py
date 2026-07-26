@@ -8,6 +8,7 @@ import nibabel as nib
 import numpy as np
 
 import data.transforms as transforms
+# import transforms as transforms
 
 class BrainDataset(Dataset):
     def __init__(self, samples, transform=None):
@@ -44,13 +45,13 @@ def data_read(datalist, basedir) -> List[Dict[str, str]]:
 
 
 def get_loader(
-        data_dir, datalist_json, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers
+        data_dir, datalist_json, n_classes, to_one_hot_y: bool, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers
     ) -> DataLoader:
     files = data_read(datalist=datalist_json, basedir=data_dir)
     if test_mode:
         transform = Compose(
             [
-                transforms.LoadImaged(keys=["image", "label"]),
+                transforms.LoadImaged(keys=["image", "label"], n_classes=n_classes, to_one_hot_y=to_one_hot_y),
                 # transforms.CropForegroundd(
                 #     keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
                 # ),
@@ -62,7 +63,7 @@ def get_loader(
     else:
         transform = Compose(
             [
-                transforms.LoadImaged(keys=["image", "label"]),
+                transforms.LoadImaged(keys=["image", "label"], n_classes=n_classes, to_one_hot_y=to_one_hot_y),
                 # transforms.CropForegroundd(
                 #     keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
                 # ),
@@ -103,26 +104,28 @@ def get_loader(
 
 
 def test():
-    train_loader = get_loader(data_dir="dataset/train_patches", datalist_json="jsons/train.json", test_mode=True, 
-                                            roi_x=96, roi_y=96, roi_z=96, batch_size=1, num_workers=8)
+    train_lesion_data_dir = "./dataset/train_lesion_patches/" # dataset directory
+    train_lesion_json_list = "./jsons/train_lesion.json" # dataset json file
+    train_loader = get_loader(train_lesion_data_dir, train_lesion_json_list, 4, True, False, 96, 96, 96, 1, 1)
     print(len(train_loader))
 
     for i, batch in enumerate(train_loader):
         print(batch.keys()) # dict_keys(['image', 'label', 'affine', 'foreground_start_coord', 'foreground_end_coord'])
-        print(batch["affine"].shape)
-        print(batch['foreground_start_coord'].shape) # torch.Size([1, 3])
-        print(batch['foreground_end_coord'].shape) # torch.Size([1, 3])
-        image = batch["image"]
-        print(image.shape) 
-        # After foreground crop : torch.Size([1, 4, 256, 256, 24])
-        # After Spatial padding : torch.Size([1, 4, 256, 256, 64])
-        # After rand spatial crop : torch.Size([1, 4, 64, 64, 64])
-        print(image.max(), image.min(), image.mean(), image.std())
-        nib.save(nib.Nifti1Image(np.array(image[0][3], copy=True, dtype=np.float64), np.array(batch["affine"][0], copy=True, dtype=np.float64)), 
-                 "outputs/augmented.nii.gz")
-        label = batch["label"]
-        print(label.shape) # torch.Size([1, 4, 256, 256, 24])
-        print()
+        # print(batch["affine"].shape)
+        affine = np.array(batch['affine'][0])
+        image = np.array(batch["image"][0][3])
+        print(image.shape)
+        label = np.array(batch['label'][0])
+        label = np.argmax(np.array(label).astype(np.uint8), axis=0)
+        label = np.array(label).astype(float)
+        print(np.unique(label), label.shape)
+        if np.unique(label).size < 3:
+            continue
+        nib.save(nib.Nifti1Image(image, affine), 
+                "outputs/test_img.nii.gz")
+        nib.save(nib.Nifti1Image(label, affine), 
+                "outputs/test_label.nii.gz")
+        break
 
 if __name__ == "__main__":
     test()
