@@ -1,3 +1,4 @@
+from typing import Literal
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,12 +8,14 @@ class DiceLoss(nn.Module):
     def __init__(
         self,
         include_background: bool = True,
-        to_onehot_y: bool = True,
+        to_onehot_y: bool = False,
         from_logits: bool = True,
+        sigmoid: bool = False,
+        softmax: bool = True,
         squared_pred: bool = False,
         smooth_nr: float = 1e-5,
         smooth_dr: float = 1e-5,
-        reduction: str = "mean",
+        reduction: Literal["mean", "sum", "none"] = "mean",
     ):
         """
         Dice Loss.
@@ -42,7 +45,11 @@ class DiceLoss(nn.Module):
 
         if reduction not in ("mean", "sum", "none"):
             raise ValueError(f"Unsupported reduction: {reduction}")
+        if sigmoid and softmax:
+            raise ValueError("Only one of sigmoid or softmax can be True.")
 
+        self.sigmoid = sigmoid
+        self.softmax = softmax
         self.include_background = include_background
         self.to_onehot_y = to_onehot_y
         self.from_logits = from_logits
@@ -68,7 +75,12 @@ class DiceLoss(nn.Module):
             Dice loss.
         """
         if self.from_logits:
-            probs = torch.softmax(preds, dim=1)
+            if self.sigmoid:
+                probs = torch.sigmoid(preds)
+            elif self.softmax:
+                probs = torch.softmax(preds, dim=1)
+            else:
+                probs = preds
         else:
             probs = preds
             
@@ -90,10 +102,12 @@ class DiceLoss(nn.Module):
 
         else:
             target = target.float()
+            if target.ndim == probs.ndim - 1:
+                target = target.unsqueeze(1)
 
         if probs.shape != target.shape:
             raise ValueError(
-                f"probs shape {probs.shape} does not match target shape {target.shape}"
+                f"probs shape {probs.shape} does not match target shape {target.shape} - set to_one_hot_y to True"
             )
 
         if not self.include_background:

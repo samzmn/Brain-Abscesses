@@ -60,12 +60,12 @@ class DiceMetric:
 
         if y.shape[1] == 1:
             n_classes = self.num_classes or y_pred.shape[1]
-
-            y = (
-                F.one_hot(y.squeeze(1).long(), n_classes)
-                .permute(0, -1, *range(1, y.ndim - 1))
-                .float()
-            )
+            if y.shape[1] != n_classes:
+                y = (
+                    F.one_hot(y.squeeze(1).long(), n_classes)
+                    .permute(0, -1, *range(1, y.ndim - 1))
+                    .float()
+                )
 
         if not self.include_background:
             y_pred = y_pred[:, 1:]
