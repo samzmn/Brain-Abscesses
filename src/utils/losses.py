@@ -16,6 +16,8 @@ class DiceLoss(nn.Module):
         smooth_nr: float = 1e-5,
         smooth_dr: float = 1e-5,
         reduction: Literal["mean", "sum", "none"] = "mean",
+        generalized: bool = False,
+        class_weights: torch.Tensor | list | tuple | None = None,
     ):
         """
         Dice Loss.
@@ -57,6 +59,19 @@ class DiceLoss(nn.Module):
         self.smooth_nr = smooth_nr
         self.smooth_dr = smooth_dr
         self.reduction = reduction
+        self.generalized = generalized
+        if class_weights is not None:
+            class_weights = torch.as_tensor(class_weights, dtype=torch.float32)
+
+        if not self.include_background:
+            class_weights = class_weights[1:]
+            # Normalize so overall magnitude remains comparable
+            class_weights = class_weights / class_weights.sum()
+
+        self.register_buffer(
+            "class_weights",
+            class_weights if class_weights is not None else None,
+        )
 
     def forward(self, preds: torch.Tensor, target: torch.Tensor):
         """
@@ -119,26 +134,94 @@ class DiceLoss(nn.Module):
 
         intersection = torch.sum(probs * target, dim=reduce_dims)
 
-        if self.squared_pred:
-            pred_sum = torch.sum(probs ** 2, dim=reduce_dims)
-            target_sum = torch.sum(target ** 2, dim=reduce_dims)
-        else:
+        # Generalized Dice
+        if self.generalized:
             pred_sum = torch.sum(probs, dim=reduce_dims)
             target_sum = torch.sum(target, dim=reduce_dims)
 
-        dice = (
-            2.0 * intersection + self.smooth_nr
-        ) / (
-            pred_sum + target_sum + self.smooth_dr
-        )
+            # class volumes from ground truth
+            class_volume = target_sum
 
-        loss = 1.0 - dice
+            # inverse squared volume weighting
+            weights = 1.0 / (class_volume.pow(2) + self.smooth_dr)
 
-        if self.reduction == "mean":
-            return loss.mean()
+            # avoid inf if a class is absent
+            weights = torch.where(
+                torch.isfinite(weights),
+                weights,
+                torch.zeros_like(weights)
+            )
 
-        if self.reduction == "sum":
-            return loss.sum()
+            numerator = 2.0 * torch.sum(
+                weights * intersection,
+                dim=1
+            )
 
-        return loss
+            denominator = torch.sum(
+                weights * (pred_sum + target_sum),
+                dim=1
+            )
+
+            dice = (
+                numerator + self.smooth_nr
+            ) / (
+                denominator + self.smooth_dr
+            )
+
+            loss = 1.0 - dice
+
+            if self.reduction == "mean":
+                return loss.mean()
+
+            if self.reduction == "sum":
+                return loss.sum()
+
+            return loss
+        
+        else: # Standard Dice
+            if self.squared_pred:
+                pred_sum = torch.sum(probs ** 2, dim=reduce_dims)
+                target_sum = torch.sum(target ** 2, dim=reduce_dims)
+            else:
+                pred_sum = torch.sum(probs, dim=reduce_dims)
+                target_sum = torch.sum(target, dim=reduce_dims)
+
+            dice = (
+                2.0 * intersection + self.smooth_nr
+            ) / (
+                pred_sum + target_sum + self.smooth_dr
+            )
+
+            loss = 1.0 - dice
+            
+            # Apply class weights
+            if self.class_weights is not None:
+                weights = self.class_weights
+
+                if weights.numel() != loss.shape[1]:
+                    raise ValueError(
+                        f"class_weights has {weights.numel()} values but "
+                        f"loss has {loss.shape[1]} channels."
+                    )
+
+                # (C,) -> (1,C)
+                weights = weights.view(1, -1)
+
+                loss = loss * weights
+
+                if self.reduction == "mean":
+                    return loss.sum(dim=1).mean()
+
+                if self.reduction == "sum":
+                    return loss.sum()
+
+                return loss
+
+            if self.reduction == "mean":
+                return loss.mean()
+
+            if self.reduction == "sum":
+                return loss.sum()
+
+            return loss
     
