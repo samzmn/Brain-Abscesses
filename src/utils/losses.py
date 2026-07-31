@@ -134,11 +134,15 @@ class DiceLoss(nn.Module):
 
         intersection = torch.sum(probs * target, dim=reduce_dims)
 
-        # Generalized Dice
-        if self.generalized:
+        if self.squared_pred:
+            pred_sum = torch.sum(probs ** 2, dim=reduce_dims)
+            target_sum = torch.sum(target ** 2, dim=reduce_dims)
+        else:
             pred_sum = torch.sum(probs, dim=reduce_dims)
             target_sum = torch.sum(target, dim=reduce_dims)
-
+        
+        # Generalized Dice
+        if self.generalized:
             # class volumes from ground truth
             class_volume = target_sum
 
@@ -179,13 +183,6 @@ class DiceLoss(nn.Module):
             return loss
         
         else: # Standard Dice
-            if self.squared_pred:
-                pred_sum = torch.sum(probs ** 2, dim=reduce_dims)
-                target_sum = torch.sum(target ** 2, dim=reduce_dims)
-            else:
-                pred_sum = torch.sum(probs, dim=reduce_dims)
-                target_sum = torch.sum(target, dim=reduce_dims)
-
             dice = (
                 2.0 * intersection + self.smooth_nr
             ) / (
@@ -216,12 +213,4 @@ class DiceLoss(nn.Module):
                     return loss.sum()
 
                 return loss
-
-            if self.reduction == "mean":
-                return loss.mean()
-
-            if self.reduction == "sum":
-                return loss.sum()
-
-            return loss
     
