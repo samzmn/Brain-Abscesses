@@ -4,6 +4,7 @@ from typing import Any, List
 
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from torch.amp import GradScaler, autocast
 
@@ -20,22 +21,33 @@ def train_epoch(model: torch.nn.Module,
                 max_epochs: int, 
                 batch_size: int,
                 use_amp: bool, 
-                scaler: GradScaler | None
+                scaler: GradScaler | None,
+                brain: bool,
 ) -> int | np.typing.NDArray[Any]:
     model.train()
     start_time = time.time()
     run_loss = AverageMeter()
+    # run_dice_loss = AverageMeter()
+    # run_bce_loss = AverageMeter()
+    # bce_loss_func = nn.BCEWithLogitsLoss()
+    # ce_loss = torch.nn.CrossEntropyLoss()#weight=torch.tensor([0.01, 0.25, 0.49, 0.25], dtype=torch.float32, device=device))
     for idx, batch_data in enumerate(loader):
         if isinstance(batch_data, list):
             data, target = batch_data
         else:
             data, target = batch_data["image"], batch_data["label"]
+            
         data, target = data.to(device), target.to(device)
+
         optimizer.zero_grad()
 
         with autocast(device_type=str(device), enabled=use_amp):
-            logits = model(data)
-            loss = loss_func(logits, target)
+            brain_logits, lesion_logits = model(data)
+            if brain:
+                loss = loss_func(brain_logits, target)
+            else:
+                # loss = loss_func(lesion_logits, target) + 0.1 * ce_loss(lesion_logits, target)
+                loss = loss_func(lesion_logits, target)
 
         if use_amp:
             scaler.scale(loss).backward()
@@ -46,15 +58,19 @@ def train_epoch(model: torch.nn.Module,
             optimizer.step()
 
         run_loss.update(loss.item(), n=batch_size)
+        # run_dice_loss.update(dice_loss.item(), n=batch_size)
+        # run_bce_loss.update(bce_loss.item(), n=batch_size)
 
         print(
             "\rEpoch {}/{} {}/{}".format(epoch+1, max_epochs, idx+1, len(loader)),
+            # "dice_loss: {:.4f}".format(run_dice_loss.avg),
+            # "bce_loss: {:.4f}".format(run_bce_loss.avg),
             "loss: {:.4f}".format(run_loss.avg),
             "time {:.2f}s".format(time.time() - start_time),
             end=''
         )
         start_time = time.time()
-        
+
     print()
     return run_loss.avg
 
@@ -67,9 +83,19 @@ def val_epoch(model: torch.nn.Module,
               model_inferer,
               max_epochs:int,
               use_amp: bool,
+              brain: bool,
 ) -> torch.Tensor:
     model.eval()
+    # print(
+    #     model.brain_out.conv.weight.abs().mean().item()
+    # )
     start_time = time.time()
+    # run_acc = AverageMeter()
+    # dice_metric = DiceScore(num_classes=1, average='micro')
+    # iou_metric = BinaryJaccardIndex().to(device)
+    # precision = BinaryPrecision().to(device)
+    # recall = BinaryRecall().to(device)
+    # f1 = BinaryF1Score().to(device)
 
     with torch.no_grad():
         for idx, batch_data in enumerate(loader):
@@ -82,33 +108,64 @@ def val_epoch(model: torch.nn.Module,
                     y_pred = torch.argmax(logit, dim=0, keepdim=True)
                     y_preds.append(y_pred[None, ...])
             y_preds = torch.concat(y_preds, dim=0)
+            # print(
+            #     y_preds.min().item(),
+            #     y_preds.max().item(),
+            #     y_preds.mean().item()
+            # )
             acc_func.reset()
             acc_func.update(y_pred=y_preds, y=target)
             acc = acc_func.aggregate()
-            # acc = acc.to(device)
-            # run_acc.update(acc.cpu().numpy(), n=1)
-            print(
-                "Val {}/{} {}/{}".format(epoch+1, max_epochs, idx+1, len(loader)),
-                ", Dice_Bg:",
-                acc[0],
-                ", Dice_Br:",
-                acc[1],
-                # run_acc.avg[0],
-                ", Dice_Ed:",
-                acc[2],
-                # run_acc.avg[1],
-                ", Dice_Ab:",
-                acc[3],
-                # run_acc.avg[2],
-                ", Dice_Rg:",
-                acc[4],
-                ", MEAN:",
-                acc.mean(),
-                ", time {:.2f}s".format(time.time() - start_time),
-            )
+
+            # dice_metric.reset()
+            # precision.reset()
+            # recall.reset()
+            # f1.reset()
+            # dice_metric.update(y_preds, target)
+            # precision.update(y_preds, target)
+            # recall.update(y_preds, target)
+            # f1.update(y_preds, target)
+            # dice: torch.Tensor = dice_metric.compute()
+            # iou = iou_metric(y_preds, target)
+            # pre: torch.Tensor = precision.compute()
+            # rec: torch.Tensor = recall.compute()
+            # f1_score: torch.Tensor = f1.compute()
+            if brain:
+                print(
+                    "Val {}/{} {}/{}".format(epoch+1, max_epochs, idx+1, len(loader)),
+                    ", Dice: ",
+                    acc,
+                    ", MEAN: ",
+                    acc.mean(),
+                    # ", Dice:",
+                    # dice.detach().cpu().numpy(),
+                    # ", IOU:",
+                    # iou,
+                    # ", precision:",
+                    # pre.detach().cpu().numpy(),
+                    # ", recall:",
+                    # rec.detach().cpu().numpy(),
+                    # ", f1-score:",
+                    # f1_score.detach().cpu().numpy(),
+                    ", time {:.2f}s".format(time.time() - start_time),
+                )
+            else:
+                print(
+                    "Val {}/{} {}/{}".format(epoch+1, max_epochs, idx+1, len(loader)),
+                    ", Dice_Bg:",
+                    acc[0],
+                    ", Dice_Ed:",
+                    acc[1],
+                    ", Dice_Ab:",
+                    acc[2],
+                    ", Dice_Rg:",
+                    acc[3],
+                    ", MEAN:",
+                    acc.mean(),
+                    ", time {:.2f}s".format(time.time() - start_time),
+                )
             start_time = time.time()
 
-    # return run_acc.avg
     return acc
 
 
@@ -149,6 +206,7 @@ def run_training(
     max_epochs: int=300,
     semantic_classes: List[str]=None,
     device: torch.types.Device = "cuda",
+    brain: bool = True,
 ) -> float:
     writer = None
     if logdir is not None:
@@ -165,7 +223,7 @@ def run_training(
         print(time.ctime(), "Epoch:", epoch+1)
         epoch_time = time.time()
         train_loss = train_epoch(
-            model, train_loader, optimizer, epoch, loss_func, device, max_epochs, batch_size, use_amp, scaler
+            model, train_loader, optimizer, epoch, loss_func, device, max_epochs, batch_size, use_amp, scaler, brain
         )
         print(
             "Final training  {}/{}".format(epoch+1, max_epochs),
@@ -196,34 +254,22 @@ def run_training(
                 device,
                 model_inferer,
                 max_epochs,
-                use_amp
+                use_amp,
+                brain
             ).numpy()
 
             val_avg_acc = val_acc.mean()
-            print(
-                "Final validation stats {}/{}".format(epoch+1, max_epochs),
-                ", Dice_Bg:",
-                val_acc[0],
-                ", Dice_Br:",
-                val_acc[1],
-                ", Dice_Ed:",
-                val_acc[2],
-                ", Dice_Ab:",
-                val_acc[3],
-                ", Dice_Rg:",
-                val_acc[4],
-                ", MEAN:",
-                val_avg_acc,
-                ", time {:.2f}s".format(time.time() - epoch_time),
-            )
 
             if writer is not None:
                 writer.add_scalar("Mean_Val_Dice", val_avg_acc, epoch)
-                if semantic_classes is not None:
-                    for val_channel_ind in range(len(semantic_classes)):
-                        if val_channel_ind < len(val_acc):
-                            writer.add_scalar(semantic_classes[val_channel_ind], val_acc[val_channel_ind], epoch)
-            
+                if brain:
+                    semantic_classes = ["Dice_Val_Bg", "Dice_Val_Br"]
+                else:
+                    semantic_classes = ["Dice_Val_Bg", "Dice_Val_Ed", "Dice_Val_Ab", "Dice_Val_Rg"]
+                for val_channel_ind in range(len(semantic_classes)):
+                    if val_channel_ind < len(val_acc):
+                        writer.add_scalar(semantic_classes[val_channel_ind], val_acc[val_channel_ind], epoch)
+        
             if val_avg_acc > val_acc_max:
                 print("new best ({:.6f} --> {:.6f}). ".format(val_acc_max, val_avg_acc))
                 val_acc_max = val_avg_acc
