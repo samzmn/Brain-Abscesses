@@ -93,4 +93,4 @@ def register_all_seq_to_flair(in_path: str="./dataset/nifti", out_path: str="./d
 if __name__ == "__main__":
     in_path = "./dataset/valid_nifti"
     out_path = "./dataset/registered"
-    register_all_seq_to_flair(in_path, out_path, id_range=(1, 82))
+    register_all_seq_to_flair(in_path, out_path, id_range=(90, 92))
