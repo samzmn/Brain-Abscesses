@@ -18,7 +18,7 @@ def resample_adc_to_flair(adc: ants.ANTsImage, flair: ants.ANTsImage, out_path: 
     return adc_resampled
 
 
-def register_seq_to_seq(seq: ants.ANTsImage, target_seq: ants.ANTsImage, out_path: str, transform_type: str="Affine"):
+def register_seq_to_seq(seq: ants.ANTsImage, target_seq: ants.ANTsImage, out_path: str=None, transform_type: str="Affine"):
     start_time = time.time()
     # tx = ants.affine_initializer(
     #     target_seq,
@@ -31,11 +31,13 @@ def register_seq_to_seq(seq: ants.ANTsImage, target_seq: ants.ANTsImage, out_pat
         type_of_transform=transform_type
     )
     registered = reg["warpedmovout"]
-    ants.image_write(registered, out_path)
+    if out_path is not None:
+        ants.image_write(registered, out_path)
 
     end_time = time.time() - start_time
     end_time = str(datetime.timedelta(seconds=int(end_time)))
     print(f"registration completed in {end_time}.")
+    return registered
 
 
 def register_all_seq_to_one(patient_id: str, 
