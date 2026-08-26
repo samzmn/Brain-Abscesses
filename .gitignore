@@ -3,8 +3,8 @@
 dataset
 jsons
 outputs
-assets
 pretrained_models
 runs
 *.txt
 /*.py
+assets/mine
