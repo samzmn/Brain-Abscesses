@@ -45,25 +45,30 @@ def data_read(datalist, basedir) -> List[Dict[str, str]]:
 
 
 def get_loader(
-        data_dir, datalist_json, n_classes, to_one_hot_y: bool, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers
+        data_dir, datalist_json, n_classes, to_one_hot_y: bool, test_mode: bool, roi_x, roi_y, roi_z, batch_size, num_workers, with_label=True,
     ) -> DataLoader:
     files = data_read(datalist=datalist_json, basedir=data_dir)
     if test_mode:
+        if with_label:
+            keys = ["image", "label"]
+        else:
+            keys = ["image"]
         transform = Compose(
             [
-                transforms.LoadImaged(keys=["image", "label"], n_classes=n_classes, to_one_hot_y=to_one_hot_y),
+                transforms.LoadImaged(keys=keys, n_classes=n_classes, to_one_hot_y=to_one_hot_y),
                 # transforms.CropForegroundd(
-                #     keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
+                #     keys=keys, source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
                 # ),
-                # transforms.SpatialPadd(keys=["image", "label"], spatial_size=[roi_x, roi_y, roi_z]),
+                # transforms.SpatialPadd(keys=keys, spatial_size=[roi_x, roi_y, roi_z]),
                 transforms.NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
-                transforms.ToTensord(keys=["image", "label"]),
+                transforms.ToTensord(keys=keys),
             ]
         )
     else:
         transform = Compose(
             [
                 transforms.LoadImaged(keys=["image", "label"], n_classes=n_classes, to_one_hot_y=to_one_hot_y),
+                transforms.SmoothLabeld(keys="label", a_min=0.001, a_max=0.95),
                 # transforms.CropForegroundd(
                 #     keys=["image", "label"], source_key="image", k_divisible=[roi_x, roi_y, roi_z], allow_smaller=True
                 # ),

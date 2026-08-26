@@ -52,6 +52,19 @@ class LoadImaged:
         return data
 
 
+class SmoothLabeld:
+    def __init__(self, keys, a_min=0.05, a_max=0.95):
+        self.keys = keys if isinstance(keys, (list, tuple)) else [keys]
+        self.a_min = a_min
+        self.a_max = a_max
+
+    def __call__(self, data: Dict):
+        for key in self.keys:
+            data[key] = np.clip(data[key], self.a_min, self.a_max)
+
+        return data
+
+
 class NormalizeIntensityd:
     def __init__(
         self,
