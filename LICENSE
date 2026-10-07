@@ -1,0 +1,74 @@
+**PROPRIETARY SOFTWARE AND MODEL LICENSE**
+**Copyright © 2026 Sam Zamani. All Rights Reserved.**
+
+This software, source code, trained model weights, model configurations, documentation, and other original materials contained in this repository (collectively, the **“Project”**) are proprietary works of the copyright holder, except for third-party components expressly identified in the `NOTICE` file.
+
+No permission is granted to any person or entity to use, copy, reproduce, modify, adapt, merge, publish, distribute, sublicense, sell, rent, lease, provide access to, publicly display, publicly perform, or create derivative works from the Project, in whole or in part, without the prior explicit written permission of the copyright holder.
+
+### 1. Copyright
+
+All original source code, modifications, architectural adaptations, training procedures, trained model weights, configuration files, documentation, and other original contributions contained in this Project are protected by applicable copyright and other intellectual-property laws.
+
+Copyright in third-party components remains with their respective copyright holders and is subject to their respective licenses.
+
+### 2. Restrictions
+
+Without prior written permission from the copyright holder, you may not:
+
+* copy or reproduce the Project or substantial portions thereof;
+* distribute, redistribute, publish, or make the Project publicly available;
+* use the source code or trained model weights for commercial or non-commercial purposes;
+* modify, adapt, or create derivative works from the Project;
+* incorporate the Project into another software package, model, dataset, product, or service;
+* use the trained model weights for inference, fine-tuning, transfer learning, benchmarking, or other computational purposes;
+* host or provide the Project through a public repository, model hub, API, cloud service, or other publicly accessible platform;
+* sublicense, sell, rent, lease, or otherwise transfer rights to the Project; or
+* use the Project or its derivatives for clinical, diagnostic, research, commercial, or other purposes without explicit written authorization.
+
+### 3. Third-Party Components and Pretrained Weights
+
+This Project incorporates, derives from, or was developed using architectural concepts and pretrained model parameters originating from third-party software and/or model resources distributed under the Apache License, Version 2.0.
+
+In particular, portions of the underlying Swin-UNETR architecture and pretrained model weights were obtained from or derived from resources associated with the MONAI project and the work of Hatamizadeh et al.
+
+Those third-party components are **not relicensed by this document** and remain subject to their applicable original licenses.
+
+The relevant third-party licensing information is provided in the `NOTICE` file accompanying this Project.
+
+To the extent that any portion of this Project constitutes a derivative work of Apache-licensed material, the rights and obligations applicable to that third-party material under the Apache License, Version 2.0 remain in force.
+
+### 4. Original Modifications
+
+The copyright holder retains all rights in the original modifications, adaptations, implementation, training pipeline, model modifications, architectural changes, training methodology, configurations, and other original contributions made in this Project, to the extent permitted by applicable law.
+
+Nothing in this license grants a recipient permission to use the copyright holder's original contributions beyond the rights, if any, expressly granted under the applicable third-party licenses.
+
+### 5. No Implied License
+
+Except for rights that cannot legally be restricted or rights expressly granted by applicable third-party licenses, no license, permission, authorization, or other right is granted by implication, estoppel, exhaustion, or otherwise.
+
+Access to, viewing of, or possession of this repository or any portion of the Project does not constitute permission to use, reproduce, modify, distribute, or execute the Project.
+
+### 6. Requests for Permission
+
+Requests for permission to use, reproduce, modify, distribute, or otherwise utilize the Project should be directed to the copyright holder.
+
+Permission must be obtained **in writing** before any use that is not independently permitted by an applicable third-party license.
+
+### 7. Disclaimer
+
+THE PROJECT IS PROVIDED **“AS IS”**, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, ACCURACY, OR RELIABILITY.
+
+THE PROJECT IS A RESEARCH TOOL AND HAS NOT NECESSARILY BEEN VALIDATED OR APPROVED FOR CLINICAL, DIAGNOSTIC, THERAPEUTIC, OR REGULATORY USE.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE USE OF THE PROJECT.
+
+### 8. Governing Rights
+
+This license shall be interpreted in accordance with applicable copyright and intellectual-property laws. Nothing in this license is intended to restrict rights that cannot legally be restricted.
+
+---
+
+**Copyright © 2026 Sam Zamani. All Rights Reserved.**
+
+**Third-party licenses:** See `NOTICE`.

@@ -3,7 +3,7 @@
 dataset
 jsons
 outputs
-pretrained_models
+pretrained_models/*
 runs
 *.txt
 /*.py

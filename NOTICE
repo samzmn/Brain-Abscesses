@@ -1,0 +1,54 @@
+# THIRD-PARTY SOFTWARE AND MODEL ATTRIBUTIONS
+
+This Project contains or is derived in part from third-party software and
+pretrained model resources distributed under the Apache License, Version 2.0.
+
+1. MONAI / Swin-UNETR
+
+---
+
+The underlying Swin-UNETR architecture and associated pretrained model
+resources used during development of this Project originate from work
+associated with the MONAI project and Hatamizadeh et al.
+
+The applicable third-party material is licensed under the Apache License,
+Version 2.0.
+
+Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+The original Apache-licensed material remains subject to the terms of the
+Apache License, Version 2.0.
+
+This Project does not distribute the original MONAI software as a dependency
+and does not directly use the MONAI API in its final implementation.
+The author independently implemented the relevant model components and
+subsequently modified the architecture for the purposes of this research.
+
+2. COPYRIGHT AND LICENSE STATUS
+
+---
+
+The third-party material identified above is not relicensed by the
+proprietary license accompanying this Project.
+
+All original source code, architectural modifications, implementation
+details, trained weights produced by this Project, training procedures,
+configuration, documentation, and other original contributions are
+copyright © 2026 Sam Zamani, except where otherwise indicated.
+
+Those original contributions are not released under the Apache License,
+Version 2.0.
+
+Use of third-party material remains subject to its original license.
+
+3. IMPORTANT
+
+---
+
+The presence of Apache-licensed third-party material in this Project does
+not constitute a grant of permission to use, copy, distribute, modify, or
+commercialize the author's original contributions.
+
+Users must independently determine the applicable license obligations for
+each third-party component before using this Project.

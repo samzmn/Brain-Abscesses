@@ -313,7 +313,6 @@ class RandSpatialCropd:
             spatial_shape,
             self.roi_size,
         ):
-            # MONAI behavior:
             # if roi > image dimension -> keep full dimension
             roi = min(roi_size, dim_size)
 
@@ -574,8 +573,7 @@ class RandScaleIntensityd:
     def __call__(self, data: Dict):
         if np.random.random() >= self.prob:
             return data
-
-        # MONAI uses the SAME factor for all keys
+            
         factor = self._sample_factor()
 
         for key in self.keys:
@@ -686,7 +684,6 @@ class RandGaussianNoised:
 class RandRotated:
     """
     Random 90-degree rotation on 3D volumes.
-    Equivalent to MONAI RandRotate90d with prob and spatial_axis.
     """
 
     def __init__(
